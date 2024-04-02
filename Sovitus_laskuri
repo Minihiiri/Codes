@@ -1,0 +1,22 @@
+import math
+
+class sovitus:
+
+    def __init__(self):
+        self.R1 = 24 #akselin halkaisija
+        self.H1 = 24.02 #Reiän halkaisja
+        self.X1 = 10# reikälevyn Paksuus
+        self.LX = 60 # lenght of the axcel that is extruding from base
+
+    def laskeminen(self):
+        self.T = self.H1-self.R1 #akselin ja reiän väljyys
+        Y_total = (math.atan(self.T/self.X1))# max heiluvuus degrees
+        Ymax = math.tan(Y_total)*self.LX
+        print(self.Y_total)
+        print(self.T / self.X1)
+        print(Ymax, "ymax liikuvuus mm")
+        print(self.T / self.X1)
+
+
+sovitus.laskeminen()
+
