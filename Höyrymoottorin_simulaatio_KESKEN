@@ -1,0 +1,205 @@
+import csv
+from itertools import chain
+import matplotlib.pyplot as plt
+import math
+import numpy as np
+from scipy.interpolate import interp1d
+
+
+def fetch_float_values_from_csv(BA_csv_file_path):
+    with open(BA_csv_file_path, 'r') as file:
+        # Use a list comprehension to filter out empty strings and then convert to floats
+        return [float(value) for value in filter(lambda x: x != '', chain.from_iterable(csv.reader(file)))]
+
+BA_csv_file_path = 'BA.csv'
+Boilingpoint_file_path = 'Boilingpoint.csv'
+Temperature_file_path ='Temperature.csv'
+KJ_per_kg_file_path = 'kJ_per_kg.csv'
+
+Temperature_file_path2 = 'Temperature2.csv'
+KJ_per_kg_file_path2 = 'kJ_per_kg2.csv'
+
+BA = fetch_float_values_from_csv(BA_csv_file_path)
+Boilingpoint = fetch_float_values_from_csv(Boilingpoint_file_path)
+
+KJ_per_kg = fetch_float_values_from_csv(KJ_per_kg_file_path)
+Temperature = fetch_float_values_from_csv(Temperature_file_path)
+KJ_per_kg2 = fetch_float_values_from_csv(KJ_per_kg_file_path2)
+Temperature2 = fetch_float_values_from_csv(Temperature_file_path2)
+
+class SteamEngineCalculator:
+    x_interp = np.linspace(np.min(KJ_per_kg), np.max(KJ_per_kg), 10000)
+    y_quadratic = interp1d(KJ_per_kg, Temperature, kind='linear', fill_value="extrapolate", bounds_error=False)
+    new_y = y_quadratic(x_interp)
+    def __init__(self):
+        self.pi = math.pi  # pii
+        self.h = 150  # sylinterin maksimikorkeus millimetreis
+        self.R = 8.31451  # gas constant
+        self.T = 100 + 272          # Kelvins temperature of the liquid/gas
+        self.V1 = 0.3 * 0.18 * 0.18  # Volume  of the boiler
+        self.V2 = 0.0125 ** 2 * self.pi * self.h  # volume of the piston cylinder
+
+        self.water = self.V1/3*1000 #Veden määrä litroina
+
+        self.heatcapacityg = 2265  # joules to change 1 gram of water at 100c to steam.
+        self.Q = 25.8  # joules per second
+
+        self.aika =1
+        self.valiaikainen = []
+
+        self.derivates= []
+        self.tulos = []
+
+        self.filter = np.ones(10)/10 # convolution
+        self.dydx = np.gradient(Boilingpoint, BA)
+        self.convolutionder = np.convolve(self.dydx, self.filter, mode='same')
+        self.lämptila1 = []
+        self.lämptila2 = []
+
+    def Derivate(self):
+
+        x0 = 0
+        x1 = 1
+        while x0 < len(BA)-1:
+            #print(x0,x1)
+            dx = BA[x1]-BA[x0]
+            fx = Boilingpoint[x1]
+            fx0 = Boilingpoint[x0]
+
+           # print(dx, "dx", fx , "fx",fx0,"fx0")
+            der = (fx - fx0) /dx
+            x0 += 1
+            x1 += 1
+            self.derivates.append(der)
+
+
+    def plotCalc(self):
+        x_interp = np.linspace(np.min(KJ_per_kg2), np.max(KJ_per_kg2), 10000)
+        tempx = np.linspace(np.min(Temperature2), np.max(Temperature2), 10000)
+
+        y_quadratic = interp1d(x_interp, tempx, kind='linear', fill_value="extrapolate", bounds_error=False)
+        new_y = y_quadratic(x_interp)
+
+        ajat = [entry.aika for entry in calculator.valiaikainen]
+        paineet = [entry.paine for entry in calculator.valiaikainen]
+        tulos = []
+        for i in range(90):
+            ero = ajat[i]/paineet[i]
+            tulos.append(ero)
+
+        #plot definitionit
+        fig1, (BoilingpointvPressure,Derivate) = plt.subplots(1,2 ,figsize=(10,5) )
+        fig2, (enhtlaply,interpolate) = plt.subplots(1,2, figsize=(7, 7))
+        fig3, (plotcalc,lämpötila1,lämptila2) = plt.subplots(1, 3, figsize=(7, 7))
+
+        #Kaikki Plot
+        Derivate.plot(BA, self.convolutionder)
+        Derivate.plot(BA[:-1],self.derivates)
+        enhtlaply.plot(KJ_per_kg2, Temperature2)
+        interpolate.plot(x_interp,new_y)
+        BoilingpointvPressure.plot(Boilingpoint, BA)  # Paineen ja lämpötilan suhde
+        plotcalc.plot(ajat, paineet)
+        lämpötila1.plot(ajat,self.lämptila1)
+        lämptila2.plot(ajat,self.lämptila2)
+        #kaikkee titleä ja muita visuaalisia atribuutteja
+        fig1.suptitle("Boilingpoint vs pressure and Its Derivate", fontsize=16)
+        fig2.suptitle("Enthaply of water", fontsize=16)
+
+        BoilingpointvPressure.set_xlabel("Boiling point in C")
+        BoilingpointvPressure.set_ylabel("Pressure in Ba")
+        BoilingpointvPressure.set_title("Boiling point related to pressure")
+        BoilingpointvPressure.grid()
+
+        enhtlaply.set_ylabel("temperature")
+        enhtlaply.set_xlabel("KJ per kg of water vapor")
+        enhtlaply.grid()
+
+        interpolate.grid()
+
+        Derivate.set_title("DERIVATE of the left graph")
+        Derivate.set_xlabel("Ba")
+        Derivate.grid()
+
+        plotcalc.set_title("Paineen kasvu sekuntteihin verrattuna, Q = 10Kw", fontsize=16)
+        plotcalc.set_xlabel("Aika sekunteissa")
+        plotcalc.set_ylabel("Paine Mpa")
+        plotcalc.grid()
+
+        lämpötila1.grid()
+
+        lämptila2.grid()
+
+    def calculate(self):
+        Temperature2_KELVIN = [x+273 for x in Temperature2]
+        KJ_per_kg2_moles = [x/18.015 for x in KJ_per_kg2]
+        x_interp = np.linspace(np.min(KJ_per_kg2_moles), np.max(KJ_per_kg2_moles), 1000)
+        tempx = np.linspace(np.min(Temperature2_KELVIN), np.max(Temperature2_KELVIN), 1000)
+
+        print()
+        y_quadratic = interp1d(x_interp, tempx, kind='linear', fill_value="extrapolate", bounds_error=False)
+
+        new_y = y_quadratic(x_interp)
+        cor = list(zip(new_y,x_interp))
+        print(tuple(cor))
+
+        def Closestvalue(x, y):
+            return min(x, key=lambda x: abs(x - y))
+
+        def corresponding(cords, given_x): #Etsii funktiosta arvon joka lähimpänä haluttua arvoa
+            try:
+                position = next(i for i, pair in enumerate(cords) if pair[0] == given_x)
+                return cords[position][1]
+            except StopIteration:
+                return None
+
+        TEMP = 273+10 #aloitus arvo veden lämpötilalle
+        vesigrammat = 0.1376 #Höyrystynyt veden määrä grammoissa, 0.1Mpa, 10C, V1*(2/3),R
+        paine = 100000 #Pa alku paine, eli 1 bar
+        n = vesigrammat/18.015
+        while self.aika < 200:
+            print(paine)
+            Ajan_muutos = 0.1
+            #moles = vesigrammat / 18.015  # moolit grammoihin
+            empty_air_V1 = self.V1*(2/3) #tyhjä ilma, veden määrä on 1/3 säiliö tilavuudesta
+            kelvin = 273
+            closesTEMP = Closestvalue(new_y, TEMP)
+            self.lämptila1.append(closesTEMP)
+            heat_vapor_J = corresponding(cor, closesTEMP)
+
+            
+            TEMP = ((paine* 0.00324) /  (n*8.3145))
+            TEMP += (self.Q * Ajan_muutos)/((self.V1-empty_air_V1)*4189)
+
+            n = (paine*empty_air_V1)/(self.R*TEMP)
+            n += (self.Q * Ajan_muutos)/heat_vapor_J #Höyrystynyt veden määrä mooleissa #tässä ei ole voluumia
+
+            paine = ((n * self.R * (closesTEMP)) / empty_air_V1) #Pa tuloksena
+
+            self.lämptila2.append(TEMP)
+            entry = Entry(paine, self.aika)
+            print()
+            print(TEMP,"TEMP")
+            print(n,"n")
+           # print(moles)
+            #print(Vesigrammojen_muutos, "Vesigrammojen_muutos")
+            print(vesigrammat, "Vesigrammat")
+            print(closesTEMP,"closesTEMP")
+            print(heat_vapor_J,"heatcap_AT_TEMP")
+            print(entry)
+            self.valiaikainen += [entry]
+            self.aika += Ajan_muutos
+class Entry:
+    def __init__(self, paine,aika):
+        self.paine = paine
+        self.aika = aika
+    def __str__(self):
+        return f"Paine: {self.paine}, Aika: {self.aika}"
+
+
+calculator = SteamEngineCalculator()
+calculator.Derivate()
+calculator.calculate()
+calculator.plotCalc()
+
+
+plt.show()
